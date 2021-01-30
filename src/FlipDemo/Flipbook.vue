@@ -1,6 +1,5 @@
 <template>
-  <div>
-
+  <div class="flipbook">
     <div
         class="viewport"
         ref="viewport"
@@ -9,14 +8,14 @@
         'drag-to-scroll': dragToScroll
       }"
         :style="{ cursor: cursor == 'grabbing' ? 'grabbing' : 'auto' }"
-        @touchmove="onTouchMove"
-        @pointermove="onPointerMove"
-        @mousemove="onMouseMove"
-        @touchend="onTouchEnd"
-        @touchcancel="onTouchEnd"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerUp"
-        @mouseup="onMouseUp"
+        @touchMove="onTouchMove"
+        @pointerMove="onPointerMove"
+        @mouseMove="onMouseMove"
+        @touchEnd="onTouchEnd"
+        @touchCancel="onTouchEnd"
+        @pointerUp="onPointerUp"
+        @pointerCancel="onPointerUp"
+        @mouseUp="onMouseUp"
         @wheel="onWheel"
     >
       <div class="flipbook-container" :style="{ transform: `scale(${zoom})` }">
@@ -41,6 +40,7 @@
             }"
               :src="pageUrlLoading(leftPage, true)"
               v-if="showLeftPage"
+              :class="showLeftPage"
               @load="didLoadImage($event)"
           />
           <img
@@ -52,37 +52,31 @@
               top: yMargin + 'px'
             }"
               v-if="showRightPage"
+              :class="showRightPage"
               :src="pageUrlLoading(rightPage, true)"
               @load="didLoadImage($event)"
           />
 
           <div :style="{ opacity: flip.opacity }">
             <div
-                v-for="[
-                key,
-                bgImage,
-                lighting,
-                bgPos,
-                transform,
-                z
-              ] in polygonArray"
+                v-for="polygon in polygonArrayObj"
                 class="polygon"
-                :key="key"
-                :class="{ blank: !bgImage }"
+                :key="polygon.key"
+                :class="{ blank: !polygon.bgImage }"
                 :style="{
-                backgroundImage: bgImage && `url(${loadImage(bgImage)})`,
+                backgroundImage: polygon.bgImage && `url(${loadImage(polygon.bgImage)})`,
                 backgroundSize: polygonBgSize,
-                backgroundPosition: bgPos,
+                backgroundPosition: polygon.bgPos,
                 width: polygonWidth,
                 height: polygonHeight,
-                transform: transform,
-                zIndex: z,
+                transform: polygon.transform,
+                zIndex: polygon.z,
               }"
             >
               <div
                   class="lighting"
-                  v-show="lighting.length"
-                  :style="{ backgroundImage: lighting }"
+                  v-show="polygon.lighting.length"
+                  :style="{ backgroundImage: polygon.lighting }"
               />
             </div>
           </div>
@@ -95,9 +89,9 @@
               height: pageHeight + 'px',
               cursor: cursor
             }"
-              @touchstart="onTouchStart"
-              @pointerdown="onPointerDown"
-              @mousedown="onMouseDown"
+              @touchStart="onTouchStart"
+              @pointerDown="onPointerDown"
+              @mouseDown="onMouseDown"
           />
         </div>
       </div>
@@ -109,8 +103,6 @@
 var IE, easeIn, easeInOut, easeOut;
 
 import Matrix from './matrix';
-
-import spinner from './spinner.svg';
 
 easeIn = function (x) {
   return Math.pow(x, 2);
@@ -140,7 +132,7 @@ export default {
       type: Array,
       default: function () {
         return [];
-      }
+      },
     },
     flipDuration: {
       type: Number,
@@ -196,7 +188,7 @@ export default {
     },
     loadingImage: {
       type: String,
-      default: spinner
+      default: ''
     }
   },
   data: function () {
@@ -319,11 +311,10 @@ export default {
       }
     },
     pageScale: function () {
-      var scale, vw, xScale, yScale;
-      vw = this.viewWidth / this.displayedPages;
-      xScale = vw / this.imageWidth;
-      yScale = this.viewHeight / this.imageHeight;
-      scale = xScale < yScale ? xScale : yScale;
+      const vw = this.viewWidth / this.displayedPages;
+      const xScale = vw / this.imageWidth;
+      const yScale = this.viewHeight / this.imageHeight;
+      const scale = xScale < yScale ? xScale : yScale;
       if (scale < 1) {
         return scale;
       } else {
@@ -356,6 +347,11 @@ export default {
     },
     polygonArray: function () {
       return this.makePolygonArray('front').concat(this.makePolygonArray('back'));
+    },
+    polygonArrayObj : function (){
+      return this.makePolygonArray('front').concat(this.makePolygonArray('back')).map(
+          ([key, bgImage, lighting, bgPos, transform, z]) => ({key, bgImage, lighting, bgPos, transform, z})
+      )
     },
     boundingLeft: function () {
       var x;
@@ -444,6 +440,7 @@ export default {
     window.addEventListener('resize', this.onResize, {
       passive: true
     });
+    document.querySelector('.flipbook').ref = this;
     this.onResize();
     this.zoom = this.zooms_[0];
     return this.goToPage(this.startPage);
@@ -455,8 +452,7 @@ export default {
   },
   methods: {
     onResize: function () {
-      var viewport;
-      viewport = this.$refs.viewport;
+      const viewport = this.$refs.viewport;
       if (!viewport) {
         return;
       }
@@ -1019,7 +1015,7 @@ export default {
         }
       }
     },
-    goToPage: function (p) {
+    goToPage: function (p=null) {
       if (p === null || p === this.page) {
         return;
       }
@@ -1121,8 +1117,8 @@ export default {
 <style scoped>
 .viewport {
   -webkit-overflow-scrolling: touch;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
 }
 
 .viewport.zoom {
